@@ -7,9 +7,13 @@ import com.example.auditoria.adapter.in.web.dto.RegistrarHallazgoRequest;
 import com.example.auditoria.domain.valueobject.HallazgoId;
 import com.example.auditoria.usecase.CerrarHallazgoUseCase;
 import com.example.auditoria.usecase.ConsultarHallazgoUseCase;
+import com.example.auditoria.usecase.ConsultarHistorialUseCase;
 import com.example.auditoria.usecase.IniciarRemediacionUseCase;
+import com.example.auditoria.usecase.ObtenerDashboardAuditoriaUseCase;
 import com.example.auditoria.usecase.ReabrirHallazgoUseCase;
 import com.example.auditoria.usecase.RegistrarHallazgoUseCase;
+import com.example.auditoria.usecase.port.CambioEstadoView;
+import com.example.auditoria.usecase.port.DashboardAuditoriaView;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -34,17 +38,23 @@ public class HallazgoController {
     private final CerrarHallazgoUseCase cerrarUseCase;
     private final ReabrirHallazgoUseCase reabrirUseCase;
     private final ConsultarHallazgoUseCase consultarUseCase;
+    private final ObtenerDashboardAuditoriaUseCase dashboardUseCase;
+    private final ConsultarHistorialUseCase consultarHistorialUseCase;
 
     public HallazgoController(RegistrarHallazgoUseCase registrarUseCase,
                               IniciarRemediacionUseCase iniciarRemediacionUseCase,
                               CerrarHallazgoUseCase cerrarUseCase,
                               ReabrirHallazgoUseCase reabrirUseCase,
-                              ConsultarHallazgoUseCase consultarUseCase) {
+                              ConsultarHallazgoUseCase consultarUseCase,
+                              ObtenerDashboardAuditoriaUseCase dashboardUseCase,
+                              ConsultarHistorialUseCase consultarHistorialUseCase) {
         this.registrarUseCase = registrarUseCase;
         this.iniciarRemediacionUseCase = iniciarRemediacionUseCase;
         this.cerrarUseCase = cerrarUseCase;
         this.reabrirUseCase = reabrirUseCase;
         this.consultarUseCase = consultarUseCase;
+        this.dashboardUseCase = dashboardUseCase;
+        this.consultarHistorialUseCase = consultarHistorialUseCase;
     }
 
     @PostMapping
@@ -58,7 +68,7 @@ public class HallazgoController {
 
     @PatchMapping("/{id}/iniciar-remediacion")
     public Map<String, String> iniciarRemediacion(@PathVariable String id,
-                                                 @Valid @RequestBody IniciarRemediacionRequest req) {
+                                                  @Valid @RequestBody IniciarRemediacionRequest req) {
         iniciarRemediacionUseCase.ejecutar(
                 new HallazgoId(UUID.fromString(id)), req.responsable(), req.fechaLimite(), req.notas()
         );
@@ -78,13 +88,26 @@ public class HallazgoController {
         return Map.of("estado", "REABIERTO");
     }
 
+    @GetMapping("/dashboard")
+    public DashboardAuditoriaView obtenerDashboard() {
+        return dashboardUseCase.ejecutar();
+    }
+
+    @GetMapping("/{id}/historial")
+    public List<CambioEstadoView> obtenerHistorial(@PathVariable String id) {
+        return consultarHistorialUseCase.ejecutar(id);
+    }
+
     @GetMapping("/{id}")
     public HallazgoResponse buscar(@PathVariable String id) {
-        return consultarUseCase.buscarPorId(new HallazgoId(UUID.fromString(id)));
+        return HallazgoResponse.fromDomain(
+                consultarUseCase.buscarPorId(new HallazgoId(UUID.fromString(id))));
     }
 
     @GetMapping
     public List<HallazgoResponse> listar() {
-        return consultarUseCase.listarTodos();
+        return consultarUseCase.listarTodos().stream()
+                .map(HallazgoResponse::fromDomain)
+                .toList();
     }
 }

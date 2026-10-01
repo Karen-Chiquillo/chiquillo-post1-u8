@@ -1,6 +1,6 @@
 package com.example.auditoria.usecase.impl;
 
-import com.example.auditoria.adapter.in.web.dto.HallazgoResponse;
+import com.example.auditoria.domain.entity.HallazgoAuditoria;
 import com.example.auditoria.domain.valueobject.HallazgoId;
 import com.example.auditoria.usecase.ConsultarHallazgoUseCase;
 import com.example.auditoria.usecase.HallazgoNotFoundException;
@@ -16,16 +16,13 @@ public class ConsultarHallazgoService implements ConsultarHallazgoUseCase {
     }
 
     @Override
-    public HallazgoResponse buscarPorId(HallazgoId id) {
+    public HallazgoAuditoria buscarPorId(HallazgoId id) {
         return repo.buscarPorId(id)
-                .map(HallazgoResponse::fromDomain)
                 .orElseThrow(() -> new HallazgoNotFoundException(id));
     }
 
     @Override
-    public List<HallazgoResponse> listarTodos() {
-        return repo.buscarTodos().stream()
-                .map(HallazgoResponse::fromDomain)
-                .toList();
+    public List<HallazgoAuditoria> listarTodos() {
+        return repo.buscarTodos();
     }
 }

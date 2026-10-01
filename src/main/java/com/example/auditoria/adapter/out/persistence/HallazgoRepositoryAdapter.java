@@ -4,12 +4,14 @@ import com.example.auditoria.domain.entity.HallazgoAuditoria;
 import com.example.auditoria.domain.valueobject.EstadoHallazgo;
 import com.example.auditoria.domain.valueobject.HallazgoId;
 import com.example.auditoria.domain.valueobject.PlanRemediacion;
+import com.example.auditoria.usecase.port.ConteoCategoria;
 import com.example.auditoria.usecase.port.HallazgoRepositoryPort;
+import com.example.auditoria.usecase.port.PromedioCategoria;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
+import java.util.*;
 
 @Component
 public class HallazgoRepositoryAdapter implements HallazgoRepositoryPort {
@@ -33,6 +35,45 @@ public class HallazgoRepositoryAdapter implements HallazgoRepositoryPort {
     @Override
     public List<HallazgoAuditoria> buscarTodos() {
         return jpa.findAll().stream().map(this::toDomain).toList();
+    }
+
+    @Override
+    public List<ConteoCategoria> contarPorSeveridad() {
+        return jpa.contarPorSeveridad().stream()
+                .map(fila -> new ConteoCategoria(fila[0].toString(), (Long) fila[1]))
+                .toList();
+    }
+
+    @Override
+    public List<ConteoCategoria> contarPorEstado() {
+        return jpa.contarPorEstado().stream()
+                .map(fila -> new ConteoCategoria(fila[0].toString(), (Long) fila[1]))
+                .toList();
+    }
+
+    @Override
+    public List<PromedioCategoria> calcularPromedioDiasCierrePorArea() {
+        List<Object[]> cerrados = jpa.obtenerHallazgosCerradosConFechas();
+        Map<String, List<Long>> diasPorArea = new HashMap<>();
+
+        for (Object[] fila : cerrados) {
+            String area = (String) fila[0];
+            LocalDate deteccion = (LocalDate) fila[1];
+            LocalDate cierre = (LocalDate) fila[2];
+
+            long dias = ChronoUnit.DAYS.between(deteccion, cierre);
+            diasPorArea.computeIfAbsent(area, k -> new ArrayList<>()).add(dias);
+        }
+
+        return diasPorArea.entrySet().stream()
+                .map(entry -> {
+                    double promedio = entry.getValue().stream()
+                            .mapToLong(Long::longValue)
+                            .average()
+                            .orElse(0.0);
+                    return new PromedioCategoria(entry.getKey(), Math.round(promedio * 100.0) / 100.0);
+                })
+                .toList();
     }
 
     private HallazgoAuditoria toDomain(HallazgoJpaEntity e) {
